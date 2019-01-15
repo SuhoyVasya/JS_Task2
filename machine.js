@@ -1,22 +1,19 @@
 
-var states ={
-    initialState: 'opened',
+var door1 ={
+    initialState: 'closed',
     context:{},
     id:'id',
     states:{
         opened:{
-            onEntry: function(){
-                console.log("door opened")
-            },
+            onEntry: "onStateEntry",
             onExit: function(){
                 console.log("door closing")
             },
             on:{
                 CLOSE:{
                     service: ()=>{
-                        const {state, setState} = useState();
-                        //console.log(state);
-                        //console.log(setState);
+                        const [state, setState] = useState();
+                        setState("closed");
                     }
                 },
                 KNOCK: {
@@ -27,12 +24,10 @@ var states ={
             }
         },
         closed: {
-            onEntry: function(){
+            onEntry:function(){
                 console.log("door closed")
             },
-            onExit:	function(){
-                console.log("door opening")
-            },
+            onExit: "onStateExit",
             on: {
 
                 OPEN:   {
@@ -40,44 +35,135 @@ var states ={
                 },
                 KNOCK: {
                     service: ()=>{
-                        console.log("Не входите я не одета")
+                        setTimeout(()=>{
+                            setState("opened");
+                            console.log("Войдите");
+                        },1000);
+                        console.log("Подождите, я не одета");
                     }
                 }
             }
         }
+    },
+    actions:{
+        onStateEntry: (event)=> {
+            const [state] = useState();
+    		console.log('now state is ' + state);
+        },
+        onStateExit: (event)=> {
+            const [state] = useState();
+            console.log('now state is ' + state);
+        },
     }
+
 }
 
+
+var door2 ={
+    initialState: 'opened',
+    context:{},
+    id:'id',
+    states:{
+        opened:{
+            onEntry: "onStateEntry",
+            onExit: function(){
+                console.log("door closing")
+            },
+            on:{
+                CLOSE:{
+                    service: ()=>{
+                        const [state, setState] = useState();
+                        setState("closed");
+                        doorMachine1.transition("OPEN");
+                    }
+                },
+                KNOCK: {
+                    service: ()=>{
+                        console.log("Че стучишь дверь открыта")
+                    }
+                }
+            }
+        },
+        closed: {
+            onEntry:function(){
+                console.log("door closed")
+            },
+            onExit: "onStateExit",
+            on: {
+
+                OPEN:   {
+                    target: 'opened'
+                },
+                KNOCK: {
+                    service: ()=>{
+                        setTimeout(()=>{
+                            setState("opened");
+                            console.log("Войдите");
+                        },1000);
+                        console.log("Подождите, я не одета");
+                    }
+                }
+            }
+        }
+    },
+    actions:{
+        onStateEntry: (event)=> {
+            const [state] = useState();
+    		console.log('now state is ' + state);
+        },
+        onStateExit: (event)=> {
+            const [state] = useState();
+            console.log('now state is ' + state);
+        },
+    }
+
+}
 
 
 function StateMachine(Source){
     this.source=Source;
-    this.setState=function(objectState){
-        source.states[source.initialState].onExit();
-        source.initialState = objectState;
-        source.states[source.initialState].onEntry();
-    };
-    this.transition=function(operation,context)	{
-        initialState =this.source.initialState;
-        setState = this.setState;
+    this.transition=function(operation,newContext)	{
+        source = this.source;
         context = this.source.context;
-        setContext=this.setContext;
         useState= function(){
-            return [initialState, setState]
+            setState=function(newState){
+                onExit = source.states[source.initialState].onExit;
+                if(onExit!=undefined){
+                    if(typeof onExit =="function"){
+                        onExit();
+                    }else if(typeof onExit =="string"){
+                        source.actions[onExit]();
+                    }
+                }
+                source.initialState = newState;
+                onEntry = source.states[source.initialState].onEntry;
+                if(onEntry!=undefined){
+                    if(typeof onEntry =="function"){
+                        onEntry();
+                    }else if(typeof onEntry =="string"){
+                        source.actions[onEntry]();
+                    }
+                }
+            }
+            return [source.initialState,setState.bind(source)];
         };
         useContext=function(){
-            return [context, setContext]
+            setContext=function(context){
+                source.context = context;
+            }
+            return [scontext,setContext.bind(source)];
         };
         var action=this.source.states[this.source.initialState].on[operation];
         if(action.target == undefined){
-            action.service.call(machine);
+            action.service.call(this);
         }else{
-            stateMachine.setState(action.target);
+            const [state, setState] = useState();
+            setState(action.target);
         }
-    };
-
-    this.setContext=function(objectContext){
-        this.source.context = objectContext
+        if(newContext!=undefined){
+            const [context, setContext] = useContext();
+            setContext(newContext);
+        }
     };
 
 }
@@ -87,4 +173,6 @@ const machine = function(source){
     return new StateMachine(source);
 }
 
-var doorMachine = machine(states)
+var doorMachine1 = machine(door1);
+var doorMachine2 = machine(door2);
+doorMachine2.transition("CLOSE",{bag:"vine"});
